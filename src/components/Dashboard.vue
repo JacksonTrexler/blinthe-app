@@ -2,7 +2,10 @@
   <div class="dashboard">
     <!-- Top Bar -->
     <v-app-bar color="surface" elevation="1">
-      <v-app-bar-title class="brand">Blinthe</v-app-bar-title>
+      <div class="brand-container">
+        <img :src="bardLogo" alt="Blinthe" class="small-bard-logo" />
+        <v-app-bar-title class="brand">Blinthe</v-app-bar-title>
+      </div>
 
       <v-spacer />
 
@@ -82,6 +85,7 @@ import type { Widget } from '@/types'
 import WidgetCard from './WidgetCard.vue'
 import CreateWidgetModal from './CreateWidgetModal.vue'
 import EditWidgetModal from './EditWidgetModal.vue'
+import bardLogo from '@/assets/GnomeBard.png'
 
 const { session, logout } = useAuth()
 const authStore = useAuthStore()
@@ -170,6 +174,20 @@ function handleLogout() {
   font-weight: bold;
   color: #00d4ff;
   letter-spacing: 1px;
+}
+
+.brand-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.small-bard-logo {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  object-fit: contain;
 }
 
 .user-info {

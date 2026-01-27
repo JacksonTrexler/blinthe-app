@@ -7,15 +7,15 @@ import type { APIKeyPattern } from '@/types'
 export const API_KEY_PATTERNS: APIKeyPattern[] = [
   {
     provider: 'perplexity_api_key',
-    pattern: /perplexity[_\s]api[_\s]key\s*[:=]\s*([a-zA-Z0-9_-]+)/gi,
+    pattern: /(?:perplexity[_\s]api[_\s]key\s*[:=]\s*)?((pplx-[a-zA-Z0-9_-]+)|([a-zA-Z0-9_-]{40,}))/gi,
   },
   {
     provider: 'openai_api_key',
-    pattern: /openai[_\s]api[_\s]key\s*[:=]\s*(sk-[a-zA-Z0-9]+)/gi,
+    pattern: /(?:openai[_\s]api[_\s]key\s*[:=]\s*)?(sk-[a-zA-Z0-9]+)/gi,
   },
   {
     provider: 'anthropic_api_key',
-    pattern: /anthropic[_\s]api[_\s]key\s*[:=]\s*(sk-ant-[a-zA-Z0-9]+)/gi,
+    pattern: /(?:anthropic[_\s]api[_\s]key\s*[:=]\s*)?(sk-ant-[a-zA-Z0-9]+)/gi,
   },
   {
     provider: 'openweather_api_key',

@@ -2,8 +2,13 @@
   <v-container class="auth-container">
     <v-card class="auth-card">
       <v-card-title class="auth-title">
-        <div class="title-brand">Blinthe</div>
-        <div class="title-subtitle">Composable Metric Dashboard</div>
+        <div class="title-content">
+          <img :src="bardLogo" alt="Blinthe" class="bard-logo" />
+          <div>
+            <div class="title-brand">Blinthe</div>
+            <div class="title-subtitle">Composable Metric Dashboard</div>
+          </div>
+        </div>
       </v-card-title>
 
       <v-card-text>
@@ -119,6 +124,7 @@
 import { ref } from 'vue'
 import { useAuth } from '@/composables'
 import { useAuthStore } from '@/stores/auth'
+import bardLogo from '@/assets/GnomeBard.png'
 
 const { authenticate } = useAuth()
 const authStore = useAuthStore()
@@ -217,6 +223,21 @@ async function handleSignUp() {
 .auth-title {
   text-align: center;
   padding: 2rem 1rem 1rem;
+}
+
+.title-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bard-logo {
+  width: 120px;
+  height: 120px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  object-fit: contain;
 }
 
 .title-brand {

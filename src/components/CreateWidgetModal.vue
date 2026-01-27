@@ -1,21 +1,21 @@
 <template>
   <v-dialog v-model="open" max-width="600" persistent>
     <v-card>
-      <v-card-title>Create New Widget</v-card-title>
+      <v-card-title>New Widget</v-card-title>
 
-      <v-card-text>
+      <v-card-text class="card-text-container">
         <div class="form-section">
-          <label class="section-label">Paste Your Prompt & API Keys</label>
+          <label class="section-label">Describe Your Widget</label>
           <v-textarea
             v-model="input"
-            placeholder="Example:&#10;openweather_api_key: abc123&#10;show me weather for today"
+            placeholder="Paste your API key(s) and describe what you want.&#10;Example: My Perplexity key is pplx-xxx... Show me today's weather and top news headlines"
             outlined
             dense
             rows="6"
             counter
             maxlength="2000"
           />
-          <small class="text-disabled">Include any API keys and describe what widget you want</small>
+          <small class="text-disabled">Include API keys anywhere and describe what you'd like to display</small>
         </div>
 
         <!-- Extracted Keys Display -->
@@ -36,10 +36,10 @@
         <!-- LLM Provider Selection -->
         <div class="form-section">
           <label class="section-label">LLM Provider</label>
-          <v-btn-toggle v-model="selectedProvider" mandatory divided border>
-            <v-btn value="perplexity">Perplexity</v-btn>
-            <v-btn value="openai">OpenAI</v-btn>
-            <v-btn value="anthropic">Anthropic</v-btn>
+          <v-btn-toggle v-model="selectedProvider" mandatory divided border class="llm-toggle">
+            <v-btn value="perplexity" class="llm-btn">Perplexity</v-btn>
+            <v-btn value="openai" class="llm-btn">OpenAI</v-btn>
+            <v-btn value="anthropic" class="llm-btn">Anthropic</v-btn>
           </v-btn-toggle>
         </div>
 
@@ -53,7 +53,7 @@
         <v-btn
           color="primary"
           :loading="loading"
-          :disabled="!input || !selectedProvider || !extractedKeys || Object.keys(extractedKeys).length === 0"
+          :disabled="isButtonDisabled"
           @click="handleCreate"
         >
           Create Widget
@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Widget, LLMProvider, DisplayConfig } from '@/types'
+import type { Widget, LLMProvider } from '@/types'
 import { extractAPIKeys, inferLLMProvider } from '@/utils/keyExtractor'
 import { useLLM } from '@/composables'
 
@@ -82,14 +82,34 @@ const selectedProvider = ref<LLMProvider>('perplexity')
 
 const { callLLM } = useLLM()
 
+// Recompute extraction on input change
+const extraction = computed(() => {
+  return extractAPIKeys(input.value)
+})
+
 const extractedKeys = computed(() => {
-  const { apiKeys } = extractAPIKeys(input.value)
-  return Object.keys(apiKeys).length > 0 ? apiKeys : null
+  const keys = extraction.value.apiKeys
+  console.log('Extracted keys:', keys, 'Count:', Object.keys(keys).length)
+  return Object.keys(keys).length > 0 ? keys : null
 })
 
 const redactedPrompt = computed(() => {
-  const { redactedPrompt } = extractAPIKeys(input.value)
-  return redactedPrompt
+  const prompt = extraction.value.redactedPrompt
+  console.log('Redacted prompt:', prompt)
+  return prompt
+})
+
+// Debug button state
+const isButtonDisabled = computed(() => {
+  const checks = {
+    noInput: !input.value,
+    noProvider: !selectedProvider.value,
+    noKeys: !extractedKeys.value,
+    emptyKeys: extractedKeys.value && Object.keys(extractedKeys.value).length === 0,
+    noPrompt: !redactedPrompt.value
+  }
+  console.log('Button disabled checks:', checks)
+  return checks.noInput || checks.noProvider || checks.noKeys || checks.emptyKeys || checks.noPrompt
 })
 
 // Auto-infer LLM provider from input
@@ -139,7 +159,7 @@ async function handleCreate() {
 
 Return ONLY valid JSON.`
 
-    const response = await callLLM(selectedProvider.value, redactedPrompt.value, apiKey, systemPrompt)
+    const response = await callLLM(selectedProvider.value, redactedPrompt.value, apiKey, systemPrompt, true)
 
     // Create widget
     const widget: Widget = {
@@ -178,6 +198,12 @@ Return ONLY valid JSON.`
 </script>
 
 <style scoped>
+.card-text-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
 .form-section {
   margin-bottom: 1.5rem;
 }
@@ -187,6 +213,25 @@ Return ONLY valid JSON.`
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: #e0e0e0;
+}
+
+/* LLM Button Contrast Fix */
+.llm-toggle :deep(.v-btn) {
+  color: #e0e0e0;
+}
+
+.llm-toggle :deep(.v-btn--active) {
+  background-color: #00d4ff;
+  color: #1a1a2e !important;
+}
+
+.llm-btn {
+  color: #e0e0e0 !important;
+}
+
+.llm-btn.v-btn--active {
+  background-color: #00d4ff;
+  color: #1a1a2e !important;
 }
 
 .keys-section {

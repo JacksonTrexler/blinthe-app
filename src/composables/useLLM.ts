@@ -3,15 +3,22 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse } from '@/types'
+import { usePerplexityModel } from './usePerplexityModel'
 
 export function useLLM() {
+  const { selectModel } = usePerplexityModel()
   /**
    * Call Perplexity API
+   * @param prompt - The user prompt
+   * @param apiKey - Perplexity API key
+   * @param systemPrompt - Optional system prompt
+   * @param isWidgetCreation - Whether this is for widget creation (uses sonar-pro)
    */
   async function callPerplexity(
     prompt: string,
     apiKey: string,
-    systemPrompt?: string
+    systemPrompt?: string,
+    isWidgetCreation?: boolean
   ): Promise<LLMResponse> {
     const messages = [
       {
@@ -24,6 +31,12 @@ export function useLLM() {
       },
     ]
 
+    // Select appropriate model: sonar-pro for widget creation, auto-detect for others
+    const model = selectModel(prompt, {
+      isWidgetCreation,
+      forceAdvanced: isWidgetCreation,
+    })
+
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -31,7 +44,7 @@ export function useLLM() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'pplx-7b-online',
+        model,
         messages,
         max_tokens: 1024,
         temperature: 0.7,
@@ -132,16 +145,22 @@ export function useLLM() {
 
   /**
    * Route to appropriate LLM provider
+   * @param provider - The LLM provider (perplexity, openai, anthropic)
+   * @param prompt - The user prompt
+   * @param apiKey - The API key for the provider
+   * @param systemPrompt - Optional system prompt
+   * @param isWidgetCreation - Whether this is for widget creation (affects model selection)
    */
   async function callLLM(
     provider: LLMProvider,
     prompt: string,
     apiKey: string,
-    systemPrompt?: string
+    systemPrompt?: string,
+    isWidgetCreation?: boolean
   ): Promise<LLMResponse> {
     switch (provider) {
       case 'perplexity':
-        return callPerplexity(prompt, apiKey, systemPrompt)
+        return callPerplexity(prompt, apiKey, systemPrompt, isWidgetCreation)
       case 'openai':
         return callOpenAI(prompt, apiKey, systemPrompt)
       case 'anthropic':

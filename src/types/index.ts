@@ -3,7 +3,7 @@
  */
 
 export type LLMProvider = 'perplexity' | 'openai' | 'anthropic'
-export type DisplayType = 'text' | 'number' | 'chart' | 'list' | 'table' | 'custom'
+export type DisplayType = 'text' | 'number' | 'chart' | 'list' | 'table' | 'custom' | 'html' | 'vue'
 export type DisplayFormat = 'currency' | 'percentage' | 'date' | 'json' | 'markdown'
 
 export interface DisplayConfig {
@@ -12,6 +12,14 @@ export interface DisplayConfig {
   refreshable?: boolean
   displayTemplate?: string // JSX or JSON schema for custom rendering
   chartType?: 'bar' | 'line' | 'pie' // For chart type
+  content?: string // HTML or raw content to display
+  component?: string // Vuetify component name (e.g., 'v-card', 'v-data-table')
+  props?: Record<string, unknown> // Vue component props
+  slots?: Record<string, unknown> // Vue component slots
+  value?: number // For number type
+  rows?: unknown[] // For table type
+  columns?: unknown[] // For table type
+  data?: unknown // For chart type
 }
 
 export interface WidgetVersion {

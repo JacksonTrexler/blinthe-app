@@ -65,11 +65,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Widget, LLMProvider } from '@/types'
+import type { Widget, LLMProvider, LLMResponse } from '@/types'
 import { extractAPIKeys, inferLLMProvider } from '@/utils/keyExtractor'
+import { generateSimpleHTMLWidget, reformulateAsQuestion, shouldUseAPI } from '@/utils/widgetGenerator'
 import { useLLM } from '@/composables'
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
   create: [widget: Widget]
 }>()
@@ -147,19 +148,119 @@ async function handleCreate() {
   error.value = null
 
   try {
+    // Check if this is a simple HTML widget request that doesn't need the API
+    if (!shouldUseAPI(redactedPrompt.value)) {
+      console.log('Detected simple HTML widget request - bypassing API')
+      const simpleWidget = generateSimpleHTMLWidget(redactedPrompt.value)
+      
+      if (simpleWidget) {
+        const widget: Widget = {
+          id: `widget_${Date.now()}`,
+          title: simpleWidget.title,
+          description: simpleWidget.description,
+          prompt: input.value,
+          apiKeys: extractedKeys.value,
+          llmModel: selectedProvider.value,
+          displayLogic: simpleWidget.displayLogic || { type: 'text' },
+          versions: [],
+          currentVersionId: `v_${Date.now()}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          size: { cols: 1 },
+          refreshInterval: simpleWidget.refreshInterval,
+        }
+
+        widget.versions.push({
+          id: widget.currentVersionId,
+          prompt: widget.prompt,
+          displayLogic: widget.displayLogic,
+          llmModel: widget.llmModel,
+          createdAt: widget.createdAt,
+          updatedAt: widget.updatedAt,
+        })
+
+        emit('create', widget)
+        close()
+        return
+      }
+    }
+
+    // For complex requests, use the API with retry logic
     // Get first API key for LLM call
     const [, apiKey] = Object.entries(extractedKeys.value)[0]
 
-    // Call LLM to parse intent
-    const systemPrompt = `You are analyzing a user's request for a data widget. Extract:
-1. title: Brief widget name
-2. description: What data it shows
-3. displayLogic: { type: 'text'|'number'|'table'|'list'|'chart', format?: 'currency'|'percentage'|'date', chartType?: 'bar'|'line'|'pie' }
-4. refreshInterval: ms between refreshes (optional)
+    // System prompt with Blinthe context - focus on Vue 3 code generation
+    const systemPrompt = `Generate Vue 3 widget component code and JSON metadata.
 
-Return ONLY valid JSON.`
+Output format:
+1. Vue 3 <template><script setup><style scoped> code (minimal, functional)
+2. Blank line
+3. JSON: {"title":"Name","description":"Desc","displayLogic":{"type":"vue","component":"name","content":"CODE HERE"}}
 
-    const response = await callLLM(selectedProvider.value, redactedPrompt.value, apiKey, systemPrompt, true)
+Be brief, generate valid code only.`
+
+    // Attempt widget creation with smart retry logic
+    let response: LLMResponse | null = null
+    let lastError: Error | null = null
+    const maxRetries = 2
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        let promptToUse = redactedPrompt.value
+        let sysPromptToUse = systemPrompt
+
+        // Reformulate vague requests into proper questions for Perplexity
+        if (attempt === 0) {
+          promptToUse = reformulateAsQuestion(redactedPrompt.value)
+          console.log(`Attempt ${attempt + 1}: Reformulated as Vue 3 task: "${promptToUse.substring(0, 150)}..."`)
+        } else if (attempt === 1) {
+          // Second attempt: Simpler, JSON-focused
+          const words = redactedPrompt.value.split(' ').slice(0, 5).join(' ')
+          promptToUse = `Create a Vue 3 widget for: "${redactedPrompt.value}". Then output JSON: {"title":"${words}","description":"Widget","displayLogic":{"type":"html","content":"<div>${words}</div>"}}`
+          console.log(`Attempt ${attempt + 1}: Simplified approach`)
+        } else if (attempt === 2) {
+          // Last resort
+          const words = redactedPrompt.value.split(' ').slice(0, 3).join(' ')
+          promptToUse = `JSON only: {"title":"${words}","description":"Widget","displayLogic":{"type":"html","content":"<h1>${words}</h1>"}}`
+          console.log(`Attempt ${attempt + 1} (last resort): Direct JSON`)
+        }
+
+        const llmResponse = await callLLM(selectedProvider.value, promptToUse, apiKey, sysPromptToUse, true)
+        
+        // Validate that displayLogic has actual content/type
+        if (!llmResponse.displayLogic?.type) {
+          throw new Error(`Invalid displayLogic: missing type. Got: ${JSON.stringify(llmResponse.displayLogic)}`)
+        }
+        
+        // Check if response is just echoing the input (bad sign)
+        if (llmResponse.title === `[perplexity_api_key]\n${redactedPrompt.value}` ||
+            llmResponse.title === redactedPrompt.value ||
+            (llmResponse.description?.includes(redactedPrompt.value) && redactedPrompt.value.length < 50)) {
+          throw new Error(`LLM echoed back the input instead of processing it. Title: "${llmResponse.title}"`)
+        }
+        
+        response = llmResponse
+        console.log(`Success! Widget created with title: "${response.title}", displayLogic type: "${response.displayLogic.type}"`)
+        break // Success, exit retry loop
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        console.error(`Attempt ${attempt + 1} failed:`, lastError.message)
+        
+        if (attempt === maxRetries) {
+          throw new Error(
+            `Widget creation failed after ${maxRetries + 1} attempts.\n` +
+            `Last error: ${lastError.message}\n` +
+            `Original prompt: "${redactedPrompt.value}"\n` +
+            `Provider: ${selectedProvider.value}`
+          )
+        }
+        // Continue to next attempt
+      }
+    }
+
+    if (!response) {
+      throw new Error('Widget creation failed: No response received from LLM')
+    }
 
     // Create widget
     const widget: Widget = {
@@ -187,7 +288,7 @@ Return ONLY valid JSON.`
       updatedAt: widget.updatedAt,
     })
 
-    // Emit create event
+    emit('create', widget)
     close()
   } catch (err) {
     error.value = `Failed to create widget: ${String(err)}`
@@ -195,6 +296,7 @@ Return ONLY valid JSON.`
     loading.value = false
   }
 }
+
 </script>
 
 <style scoped>
@@ -227,11 +329,25 @@ Return ONLY valid JSON.`
 
 .llm-btn {
   color: #e0e0e0 !important;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+}
+
+.llm-btn:not(.v-btn--active) {
+  border-color: rgba(0, 212, 255, 0.3) !important;
+}
+
+.llm-btn:hover:not(.v-btn--active) {
+  background-color: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.6) !important;
 }
 
 .llm-btn.v-btn--active {
-  background-color: #00d4ff;
+  background-color: #00d4ff !important;
   color: #1a1a2e !important;
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
 }
 
 .keys-section {

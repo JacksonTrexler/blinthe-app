@@ -57,6 +57,12 @@ export function useLLM() {
     }
 
     const data = await response.json()
+    
+    // Check for API-level errors in the response (invalid request, etc)
+    if (data.error) {
+      throw new Error(`Perplexity API rejected request: ${data.error?.message || data.error?.type || String(data.error)}`)
+    }
+    
     const content = data.choices[0]?.message?.content || ''
 
     return parseJSONResponse(content)
@@ -179,33 +185,85 @@ export function useLLM() {
 }
 
 /**
- * Parse LLM response and extract JSON
+ * Validate that parsed response has required widget fields
+ */
+function validateWidgetResponse(parsed: any): parsed is LLMResponse {
+  return (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    typeof parsed.title === 'string' &&
+    parsed.title.length > 0 &&
+    (typeof parsed.displayLogic === 'object' || parsed.displayLogic === undefined) &&
+    // displayLogic must have a valid type
+    (parsed.displayLogic?.type === undefined || typeof parsed.displayLogic?.type === 'string')
+  )
+}
+
+/**
+ * Parse LLM response and extract JSON with strict validation
+ * Handles cases where Vue 3 code is followed by JSON metadata
+ * Strips template code and finds the last valid JSON object
  */
 function parseJSONResponse(content: string): LLMResponse {
   try {
-    // Try to find JSON in the response
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      return {
-        title: parsed.title || 'Untitled',
-        description: parsed.description || '',
-        displayLogic: parsed.displayLogic || { type: 'text' },
-        refreshInterval: parsed.refreshInterval,
+    // Remove Vue template from beginning if present
+    // Look for </style> marker to find end of template
+    let cleanContent = content
+    const templateEnd = content.lastIndexOf('</style>')
+    if (templateEnd > 0) {
+      cleanContent = content.substring(templateEnd + 8) // Skip past </style>
+    }
+    
+    // Try to find JSON blocks - look for { ... } patterns
+    // Extract potential JSON objects from the content
+    const possibleJSONs: string[] = []
+    let depth = 0
+    let startIdx = -1
+    
+    for (let i = 0; i < cleanContent.length; i++) {
+      const char = cleanContent[i]
+      
+      if (char === '{') {
+        if (depth === 0) startIdx = i
+        depth++
+      } else if (char === '}') {
+        depth--
+        if (depth === 0 && startIdx >= 0) {
+          possibleJSONs.push(cleanContent.substring(startIdx, i + 1))
+          startIdx = -1
+        }
       }
     }
-
-    // Fallback: create basic response
-    return {
-      title: 'Widget',
-      description: content.substring(0, 200),
-      displayLogic: { type: 'text' },
+    
+    // Try each JSON object found, starting from the last (most complete)
+    for (let i = possibleJSONs.length - 1; i >= 0; i--) {
+      const jsonStr = possibleJSONs[i]
+      try {
+        const parsed = JSON.parse(jsonStr)
+        
+        // Validate that it has required widget fields
+        if (validateWidgetResponse(parsed)) {
+          return {
+            title: parsed.title,
+            description: parsed.description || '',
+            displayLogic: parsed.displayLogic || { type: 'text' },
+            refreshInterval: parsed.refreshInterval,
+          }
+        }
+      } catch {
+        // Continue to next JSON match
+        continue
+      }
     }
-  } catch {
-    return {
-      title: 'Widget',
-      description: content.substring(0, 200),
-      displayLogic: { type: 'text' },
-    }
+    
+    // No valid widget JSON found - provide helpful debugging info
+    const preview = cleanContent.substring(0, 300)
+    throw new Error(
+      `No valid widget JSON found. Expected {title, description, displayLogic}. Found ${possibleJSONs.length} JSON block(s). Preview: ${preview}${cleanContent.length > 300 ? '...' : ''}`
+    )
+  } catch (error) {
+    throw new Error(
+      `Failed to parse LLM response: ${error instanceof Error ? error.message : String(error)}`
+    )
   }
 }

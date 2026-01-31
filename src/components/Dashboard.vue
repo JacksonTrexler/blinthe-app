@@ -1,78 +1,83 @@
 <template>
-  <div class="dashboard">
-    <!-- Top Bar -->
-    <v-app-bar color="surface" elevation="1">
-      <div class="brand-container">
-        <img :src="bardLogo" alt="Blinthe" class="small-bard-logo" />
-        <v-app-bar-title class="brand">Blinthe</v-app-bar-title>
-      </div>
+    <v-app>
+        <div class="dashboard">
+            <!-- Top Bar -->
+            <v-app-bar color="surface" elevation="1">
+            <div class="brand-container">
+                <img :src="bardLogo" alt="Blinthe" class="small-bard-logo" />
+                <v-app-bar-title class="brand">Blinthe</v-app-bar-title>
+            </div>
 
-      <v-spacer />
+            <v-spacer />
 
-      <div class="user-info">
-        <span v-if="currentUsername">{{ currentUsername }}</span>
-      </div>
+            <div class="user-info">
+                <span v-if="currentUsername">{{ currentUsername }}</span>
+            </div>
 
-      <v-menu>
-        <template v-slot:activator="{ props }">
-          <v-btn icon="mdi-menu-down" v-bind="props" />
-        </template>
+            <v-menu>
+                <template v-slot:activator="{ props }">
+                <v-btn icon="mdi-menu-down" v-bind="props" />
+                </template>
 
-        <v-list>
-          <v-list-item @click="handleLogout">
-            <v-list-item-title>Logout</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-    </v-app-bar>
+                <v-list>
+                <v-list-item @click="handleLogout">
+                    <v-list-item-title>Logout</v-list-item-title>
+                </v-list-item>
+                </v-list>
+            </v-menu>
+            </v-app-bar>
 
-    <!-- Main Content -->
-    <v-container class="dashboard-content">
-      <div class="widgets-grid">
-        <!-- Add Widget Card -->
-        <v-card class="add-widget-card" @click="openCreateModal">
-          <div class="add-widget-content">
-            <v-icon size="64">mdi-plus</v-icon>
-            <p>Add Widget</p>
-          </div>
-        </v-card>
+            <!-- Main Content -->
+            <v-main>
+                <v-container class="dashboard-content">
+                    <div class="widgets-grid">
+                        <!-- Add Widget Card -->
+                        <v-card class="add-widget-card" @click="openCreateModal">
+                        <div class="add-widget-content">
+                            <v-icon size="64">mdi-plus</v-icon>
+                            <p>Add Widget</p>
+                        </div>
+                        </v-card>
 
-        <!-- Widget Cards -->
-        <WidgetCard
-          v-for="widget in sortedWidgets"
-          :key="widget.id"
-          :widget="widget"
-          @edit="selectWidget"
-          @delete="deleteWidget"
-          @refresh="refreshWidget"
-        />
-      </div>
+                        <!-- Widget Cards -->
+                        <WidgetCard
+                        v-for="widget in sortedWidgets"
+                        :key="widget.id"
+                        :widget="widget"
+                        @edit="selectWidget"
+                        @delete="deleteWidget"
+                        @refresh="refreshWidget"
+                        />
+                    </div>
 
-      <!-- Empty State -->
-      <v-empty-state
-        v-if="widgets.length === 0"
-        icon="mdi-chart-box-outline"
-        headline="No widgets yet"
-        title="Get started by creating your first widget"
-        class="mt-8"
-      />
-    </v-container>
+                    <!-- Empty State -->
+                    <v-empty-state
+                        v-if="widgets.length === 0"
+                        icon="mdi-chart-box-outline"
+                        headline="No widgets yet"
+                        title="Get started by creating your first widget"
+                        class="mt-8"
+                    />
+                </v-container>
 
-    <!-- Create Widget Modal -->
-    <CreateWidgetModal
-      v-if="showCreateModal"
-      @close="showCreateModal = false"
-      @create="handleCreateWidget"
-    />
+                <!-- Create Widget Modal -->
+                <CreateWidgetModal
+                v-if="showCreateModal"
+                @close="showCreateModal = false"
+                @create="handleCreateWidget"
+                />
 
-    <!-- Edit Widget Modal -->
-    <EditWidgetModal
-      v-if="selectedWidget && showEditModal"
-      :widget="selectedWidget"
-      @close="showEditModal = false"
-      @save="handleUpdateWidget"
-    />
-  </div>
+                <!-- Edit Widget Modal -->
+                <EditWidgetModal
+                v-if="selectedWidget && showEditModal"
+                :widget="selectedWidget"
+                @close="showEditModal = false"
+                @save="handleUpdateWidget"
+                />
+            </v-main>
+        </div>
+        
+    </v-app>
 </template>
 
 <script setup lang="ts">

@@ -1,3 +1,18 @@
+# Preface
+This app was made as an experiment using Perplexity ask and research along with GH Copilot chat. It is 99% slop and, in-fact, does not work. Mostly an excuse to use up my January 2026 chat quota.
+
+Before running out of requests, Claude Haiku using perplexity_ask / perplexity_research managed to bootstrap the login process, a mostly functional create widget flow, successfully queried perplexity with a provided API key scraped from a user's widget description, but got stumped deserializing Perpexity's output.
+
+It may have gotten further if it hadn't gotten hung up on unit testing, had organized and executed on tasks sequantially without losing the thread.
+
+I've already had really promising results using Claude Opus agents at work to organize and orchestrate the agent's workflow, but unforunately Haiku without adequate babysitting ended up spinning in circles without validating output properly
+
+Agent was asked to adhere to strict composability and reusability: all components, templates etc. are less than 300 lines
+
+On the whole I wouldn't attempt resuming this project without at least a modest budget for a premium model
+<img width="1157" height="922" alt="image" src="https://github.com/user-attachments/assets/462ae7ae-512e-40ae-9b7c-b6f8514af969" />
+
+The rest of this README written by the Agent
 # Blinthe - Composable Metric Dashboard PWA
 
 A personal metric dashboard PWA where users input natural language prompts + API credentials to auto-generate custom widgets. Zero backend, all client-side, fully encrypted.
